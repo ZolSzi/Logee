@@ -15,7 +15,7 @@ class FileTailer(object):
 
     def __init__(self, filepath):
         '''
-        Constructor
+        Constructor, accepts filepath which can be a relative or absolute path
         '''
         self.filepath = filepath
         self.line_terminators_joined = '\r\n'
@@ -23,30 +23,30 @@ class FileTailer(object):
         self.file = None
         self.thread = threading.Thread(target=self.read_lines)
         self.thread.daemon = False
-        
     
-    def listen(self, callback):
-        self.callback = callback
-        
-    def stop_listening(self):
+    def stop_tailing(self):
         self.callback = None;
+        self.file.close()
         
-    def tail(self):
+    def tail(self, callback):
+        self.callback = callback
         filestat = os.stat(self.filepath)
         if self.filesize is None:
             self.filesize = filestat.st_size
-        self.file = open(self.filepath)
+        self.file = open(self.filepath, 'r')
         self.thread.start()
             
     def read_lines(self):
-        while self.callback is not None:
-            filestat = os.stat(self.filepath)
-            if self.filesize < filestat.st_size:
-                self.file.seek(self.filesize)
-                line = self.file.readline()
-                while line:
-                    self.callback(line.strip(self.line_terminators_joined))
+        try:
+            while self.callback is not None:
+                filestat = os.stat(self.filepath)
+                if self.filesize < filestat.st_size:
+                    self.file.seek(self.filesize)
                     line = self.file.readline()
-                self.filesize = filestat.st_size
-            time.sleep(1)
-                    
+                    while line:
+                        self.callback(line.strip(self.line_terminators_joined))
+                        line = self.file.readline()
+                    self.filesize = filestat.st_size
+                time.sleep(1)
+        except:
+            print 'Unexpected error while tailing file... stopping tailing!'
